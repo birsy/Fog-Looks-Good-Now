@@ -1,9 +1,8 @@
 package birsy.foglooksgoodnow.mixin.client;
 
 import birsy.foglooksgoodnow.FogLooksGoodNowMod;
-import birsy.foglooksgoodnow.client.FogDensityManager;
+import birsy.foglooksgoodnow.client.FogManager;
 import birsy.foglooksgoodnow.client.FoggySkyRenderer;
-import birsy.foglooksgoodnow.config.FogLooksGoodNowConfig;
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.math.Matrix4f;
 import net.minecraft.client.Camera;
@@ -18,15 +17,15 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 public class LevelRendererMixin {
     @Inject(method = "<init>(Lnet/minecraft/client/Minecraft;Lnet/minecraft/client/renderer/entity/EntityRenderDispatcher;Lnet/minecraft/client/renderer/blockentity/BlockEntityRenderDispatcher;Lnet/minecraft/client/renderer/RenderBuffers;)V", at = @At("TAIL"))
     private void init(CallbackInfo info) {
-        FogDensityManager.densityManager = new FogDensityManager();
+        FogManager.densityManager = new FogManager();
 
         FogLooksGoodNowMod.LOGGER.info("Initialized Density Manager");
     }
 
     @Inject(method = "close()V", at = @At("TAIL"))
     private void close(CallbackInfo info) {
-        FogDensityManager.getDensityManager().close();
-        FogDensityManager.densityManager = null;
+        FogManager.getDensityManager().close();
+        FogManager.densityManager = null;
     }
 
     @Inject(method = "renderSky(Lcom/mojang/blaze3d/vertex/PoseStack;Lcom/mojang/math/Matrix4f;FLnet/minecraft/client/Camera;ZLjava/lang/Runnable;)V", at = @At("TAIL"))

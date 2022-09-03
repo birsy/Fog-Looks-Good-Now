@@ -3,25 +3,38 @@ package birsy.foglooksgoodnow.client;
 import birsy.foglooksgoodnow.FogLooksGoodNowMod;
 import birsy.foglooksgoodnow.config.FogLooksGoodNowConfig;
 import birsy.foglooksgoodnow.util.MathUtils;
+import com.google.common.collect.Lists;
+import net.minecraft.client.Camera;
 import net.minecraft.client.Minecraft;
+import net.minecraft.client.multiplayer.ClientLevel;
+import net.minecraft.client.renderer.DimensionSpecialEffects;
+import net.minecraft.client.renderer.FogRenderer;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Registry;
 import net.minecraft.resources.ResourceLocation;
+import net.minecraft.util.CubicSampler;
 import net.minecraft.util.Mth;
+import net.minecraft.world.effect.MobEffect;
+import net.minecraft.world.effect.MobEffectInstance;
+import net.minecraft.world.effect.MobEffects;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.level.LightLayer;
 import net.minecraft.world.level.biome.Biome;
+import net.minecraft.world.level.biome.BiomeManager;
+import net.minecraft.world.phys.Vec3;
 import org.apache.commons.lang3.tuple.Pair;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.*;
 
-public class FogDensityManager {
+public class FogManager {
     @Nullable
-    public static FogDensityManager densityManager;
-    public static FogDensityManager getDensityManager() {
+    public static FogManager densityManager;
+    public static FogManager getDensityManager() {
         return Objects.requireNonNull(densityManager, "Attempted to call getDensityManager before it finished loading!");
     }
-    public static Optional<FogDensityManager> getDensityManagerOptional() {
+    public static Optional<FogManager> getDensityManagerOptional() {
         return Optional.ofNullable(densityManager);
     }
 
@@ -32,10 +45,11 @@ public class FogDensityManager {
     public InterpolatedValue currentBlockLight;
     public InterpolatedValue currentLight;
     public InterpolatedValue undergroundness;
+    public InterpolatedValue darkness;
 
     private Map<String, BiomeFogDensity> configMap;
 
-    public FogDensityManager() {
+    public FogManager() {
         this.mc = Minecraft.getInstance();
         this.fogStart = new InterpolatedValue(0.0F);
         this.fogDensity = new InterpolatedValue(1.0F);
@@ -44,6 +58,7 @@ public class FogDensityManager {
         this.currentBlockLight = new InterpolatedValue(16.0F);
         this.currentLight = new InterpolatedValue(16.0F);
         this.undergroundness = new InterpolatedValue(0.0F, 0.02f);
+        this.darkness = new InterpolatedValue(0.0F, 0.1f);
 
         this.configMap = new HashMap<>();
         if (FogLooksGoodNowConfig.config.isLoaded()) {
@@ -74,13 +89,16 @@ public class FogDensityManager {
         boolean isFogDense = this.mc.level.effects().isFoggyAt(pos.getX(), pos.getZ()) || this.mc.gui.getBossOverlay().shouldCreateWorldFog();
         float density = isFogDense? 2.0F : 1.0F;
 
+        float[] darknessAffectedFog;
+
         if (currentDensity != null) {
-            this.fogStart.interpolate(currentDensity.fogStart());
-            this.fogDensity.interpolate(currentDensity.fogDensity() * density);
+            darknessAffectedFog = getDarknessEffectedFog(currentDensity.fogStart(), currentDensity.fogDensity() * density);
         } else {
-            this.fogStart.interpolate();
-            this.fogDensity.interpolate(this.fogDensity.defaultValue * density);
+            darknessAffectedFog = getDarknessEffectedFog(this.fogStart.defaultValue, this.fogDensity.defaultValue * density);
         }
+        this.darkness.interpolate(darknessAffectedFog[2]);
+        this.fogStart.interpolate(darknessAffectedFog[0]);
+        this.fogDensity.interpolate(darknessAffectedFog[1]);
 
         this.currentSkyLight.interpolate(mc.level.getBrightness(LightLayer.SKY, pos));
         this.currentBlockLight.interpolate(mc.level.getBrightness(LightLayer.BLOCK, pos));
@@ -93,6 +111,54 @@ public class FogDensityManager {
         float yFactor = Mth.clamp(MathUtils.mapRange(mc.level.getSeaLevel() - 32.0F, mc.level.getSeaLevel() + 32.0F, 1, 0, y), 0.0F, 1.0F);
         //FogLooksGoodNowMod.LOGGER.info("" + yFactor);
         return Mth.lerp(yFactor, 1 - this.undergroundness.get(partialTick), this.currentSkyLight.get(partialTick) / 16.0F);
+    }
+
+    public static Vec3 getCaveFogColor(ClientLevel level, Camera camera) {
+        Minecraft mc = Minecraft.getInstance();
+
+        BiomeManager biomemanager = level.getBiomeManager();
+        Vec3 biomePos = camera.getPosition().subtract(2.0D, 2.0D, 2.0D).scale(0.25D);
+        Vec3 fogColor = CubicSampler.gaussianSampleVec3(biomePos, (x, y, z) -> Vec3.fromRGB24(biomemanager.getNoiseBiomeAtQuart(x, y, z).get().getFogColor()));
+        fogColor = fogColor.multiply(Vec3.fromRGB24(FogLooksGoodNowConfig.CLIENT_CONFIG.caveFogColor.get()));
+
+        float darkness = 1.0F - Mth.clamp(densityManager.darkness.get(mc.getPartialTick()), 0, 1);
+        fogColor = fogColor.multiply(darkness, darkness, darkness);
+
+        return fogColor;
+    }
+
+    public static boolean shouldRenderCaveFog() {
+        return Minecraft.getInstance().level.effects().skyType() == DimensionSpecialEffects.SkyType.NORMAL && FogLooksGoodNowConfig.CLIENT_CONFIG.useCaveFog.get();
+    }
+
+    public static float[] getDarknessEffectedFog(float fs, float fd) {
+        Minecraft mc = Minecraft.getInstance();
+        float renderDistance = mc.gameRenderer.getRenderDistance();
+
+        Entity entity = mc.cameraEntity;
+        float fogStart = fs;
+        float fogDensity = fd;
+        float darknessValue = 0.0F;
+
+        if (entity instanceof LivingEntity e) {
+            if (e.hasEffect(MobEffects.BLINDNESS)) {
+                MobEffectInstance effect = e.getEffect(MobEffects.BLINDNESS);
+                float intensity = Mth.lerp(Math.min(1.0F, (float)effect.getDuration() / 20.0F), renderDistance, 5.0F);
+                fogStart = (5.0F * 0.5F) / renderDistance;
+                fogDensity = renderDistance / 10.0F;
+                darknessValue = 1.0F;
+            }else if (e.hasEffect(MobEffects.DARKNESS)) {
+                MobEffectInstance effect = e.getEffect(MobEffects.DARKNESS);
+                if (!effect.getFactorData().isEmpty()) {
+                    float intensity = Mth.lerp(effect.getFactorData().get().getFactor(e, mc.getPartialTick()), renderDistance, 15.0F);
+                    fogStart = (15.0F * 0.2F) / renderDistance;
+                    fogDensity = renderDistance / 15.0F;
+                    darknessValue = effect.getFactorData().get().getFactor(e, mc.getPartialTick());
+                }
+            }
+        }
+
+        return new float[]{fogStart, fogDensity, darknessValue};
     }
 
     public void close() {}
@@ -142,4 +208,5 @@ public class FogDensityManager {
             return Mth.lerp(partialTick, previousValue, currentValue);
         }
     }
+
 }

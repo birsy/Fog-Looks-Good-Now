@@ -1,7 +1,6 @@
 package birsy.foglooksgoodnow.config;
 
-import birsy.foglooksgoodnow.FogLooksGoodNowMod;
-import birsy.foglooksgoodnow.client.FogDensityManager;
+import birsy.foglooksgoodnow.client.FogManager;
 import net.minecraftforge.api.distmarker.Dist;
 import net.minecraftforge.common.ForgeConfigSpec;
 import net.minecraftforge.fml.common.Mod;
@@ -10,7 +9,6 @@ import org.apache.commons.lang3.tuple.Pair;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
-import java.util.function.Supplier;
 
 @Mod.EventBusSubscriber(bus = Mod.EventBusSubscriber.Bus.MOD, value = Dist.CLIENT)
 public class FogLooksGoodNowConfig {
@@ -49,14 +47,14 @@ public class FogLooksGoodNowConfig {
         }
     }
 
-    public static List<Pair<String, FogDensityManager.BiomeFogDensity>> getDensityConfigs() {
-        List<Pair<String, FogDensityManager.BiomeFogDensity>> list = new ArrayList<>();
+    public static List<Pair<String, FogManager.BiomeFogDensity>> getDensityConfigs() {
+        List<Pair<String, FogManager.BiomeFogDensity>> list = new ArrayList<>();
         List<? extends String> densityConfigs = CLIENT_CONFIG.biomeFogs.get();
 
         for (String densityConfig : densityConfigs) {
             String[] options = densityConfig.split(".*");
             try {
-                list.add(Pair.of(options[0], new FogDensityManager.BiomeFogDensity(Float.parseFloat(options[1]), Float.parseFloat(options[2]))));
+                list.add(Pair.of(options[0], new FogManager.BiomeFogDensity(Float.parseFloat(options[1]), Float.parseFloat(options[2]))));
             } catch (NumberFormatException e) {
                 throw new RuntimeException(e);
             }
