@@ -3,6 +3,7 @@ package birsy.foglooksgoodnow.mixin.client;
 import birsy.foglooksgoodnow.FogLooksGoodNowMod;
 import birsy.foglooksgoodnow.client.FogDensityManager;
 import birsy.foglooksgoodnow.client.FoggySkyRenderer;
+import birsy.foglooksgoodnow.config.FogLooksGoodNowConfig;
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.math.Matrix4f;
 import net.minecraft.client.Camera;

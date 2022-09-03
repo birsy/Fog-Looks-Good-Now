@@ -71,7 +71,9 @@ public class FogDensityManager {
             return;
 
         BiomeFogDensity currentDensity = configMap.get(key.toString());
-        float density = this.mc.level.effects().isFoggyAt(pos.getX(), pos.getZ()) ? 1.5F : 1.0F;
+        boolean isFogDense = this.mc.level.effects().isFoggyAt(pos.getX(), pos.getZ()) || this.mc.gui.getBossOverlay().shouldCreateWorldFog();
+        float density = isFogDense? 2.0F : 1.0F;
+
         if (currentDensity != null) {
             this.fogStart.interpolate(currentDensity.fogStart());
             this.fogDensity.interpolate(currentDensity.fogDensity() * density);

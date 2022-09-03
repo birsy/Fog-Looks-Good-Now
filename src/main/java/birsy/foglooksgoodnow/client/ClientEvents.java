@@ -1,6 +1,7 @@
 package birsy.foglooksgoodnow.client;
 
 import birsy.foglooksgoodnow.FogLooksGoodNowMod;
+import birsy.foglooksgoodnow.config.FogLooksGoodNowConfig;
 import com.mojang.blaze3d.shaders.FogShape;
 import com.mojang.blaze3d.systems.RenderSystem;
 import net.minecraft.client.Minecraft;
@@ -28,7 +29,11 @@ public class ClientEvents {
             FogDensityManager densityManager = FogDensityManager.getDensityManager();
             Minecraft mc = Minecraft.getInstance();
             float renderDistance = event.getRenderer().getRenderDistance();
-            float undergroundFogMultiplier = Mth.lerp(densityManager.getUndergroundFactor((float) event.getPartialTick()), 2.2F, 1.0F);
+
+            float undergroundFogMultiplier = 1.0F;
+            if (FoggySkyRenderer.shouldRenderCaveFog()) {
+                undergroundFogMultiplier = Mth.lerp(densityManager.getUndergroundFactor((float) event.getPartialTick()), 2.2F, 1.0F);
+            }
 
             RenderSystem.setShaderFogStart(renderDistance * densityManager.fogStart.get((float) event.getPartialTick()));
             RenderSystem.setShaderFogEnd(renderDistance / (densityManager.fogDensity.get((float) event.getPartialTick()) * undergroundFogMultiplier));
@@ -38,14 +43,11 @@ public class ClientEvents {
 
     @SubscribeEvent
     public static void onRenderFogColors(ViewportEvent.ComputeFogColor event) {
-        if (event.getCamera().getFluidInCamera() == FogType.NONE) {
+        if (event.getCamera().getFluidInCamera() == FogType.NONE && FoggySkyRenderer.shouldRenderCaveFog()) {
             FogDensityManager densityManager = FogDensityManager.getDensityManager();
 
             Minecraft mc = Minecraft.getInstance();
-            BiomeManager biomemanager = mc.level.getBiomeManager();
-            Vec3 biomePos = event.getRenderer().getMainCamera().getPosition().subtract(2.0D, 2.0D, 2.0D).scale(0.25D);
-            Vec3 fogColor = CubicSampler.gaussianSampleVec3(biomePos, (x, y, z) -> Vec3.fromRGB24(biomemanager.getNoiseBiomeAtQuart(x, y, z).get().getFogColor()));
-            fogColor = fogColor.multiply(0.2F, 0.2F, 0.2F);
+            Vec3 fogColor = FoggySkyRenderer.getCaveFogColor(mc.level, event.getCamera());
 
             float undergroundFactor = 1 - densityManager.getUndergroundFactor((float) event.getPartialTick());
             event.setRed((float) Mth.lerp(undergroundFactor, event.getRed(), fogColor.x));
