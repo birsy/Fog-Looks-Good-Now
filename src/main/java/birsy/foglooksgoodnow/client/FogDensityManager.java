@@ -2,11 +2,13 @@ package birsy.foglooksgoodnow.client;
 
 import birsy.foglooksgoodnow.FogLooksGoodNowMod;
 import birsy.foglooksgoodnow.config.FogLooksGoodNowConfig;
+import birsy.foglooksgoodnow.util.MathUtils;
 import net.minecraft.client.Minecraft;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Registry;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.util.Mth;
+import net.minecraft.world.level.LightLayer;
 import net.minecraft.world.level.biome.Biome;
 import org.apache.commons.lang3.tuple.Pair;
 import org.jetbrains.annotations.Nullable;
@@ -26,6 +28,10 @@ public class FogDensityManager {
     private final Minecraft mc;
     public InterpolatedValue fogStart;
     public InterpolatedValue fogDensity;
+    public InterpolatedValue currentSkyLight;
+    public InterpolatedValue currentBlockLight;
+    public InterpolatedValue currentLight;
+    public InterpolatedValue undergroundness;
 
     private Map<String, BiomeFogDensity> configMap;
 
@@ -33,6 +39,12 @@ public class FogDensityManager {
         this.mc = Minecraft.getInstance();
         this.fogStart = new InterpolatedValue(0.0F);
         this.fogDensity = new InterpolatedValue(1.0F);
+
+        this.currentSkyLight = new InterpolatedValue(16.0F);
+        this.currentBlockLight = new InterpolatedValue(16.0F);
+        this.currentLight = new InterpolatedValue(16.0F);
+        this.undergroundness = new InterpolatedValue(0.0F, 0.02f);
+
         this.configMap = new HashMap<>();
         if (FogLooksGoodNowConfig.config.isLoaded()) {
             initializeConfig();
@@ -67,6 +79,18 @@ public class FogDensityManager {
             this.fogStart.interpolate();
             this.fogDensity.interpolate(this.fogDensity.defaultValue * density);
         }
+
+        this.currentSkyLight.interpolate(mc.level.getBrightness(LightLayer.SKY, pos));
+        this.currentBlockLight.interpolate(mc.level.getBrightness(LightLayer.BLOCK, pos));
+        this.currentLight.interpolate(mc.level.getRawBrightness(pos, 0));
+        if (mc.level.canSeeSky(pos) || pos.getY() < mc.level.getSeaLevel() - 32.0F) { this.undergroundness.interpolate(0.0F, 0.05f); } else { this.undergroundness.interpolate(1.0F); }
+    }
+
+    public float getUndergroundFactor(float partialTick) {
+        float y = (float) mc.cameraEntity.getY();
+        float yFactor = Mth.clamp(MathUtils.mapRange(mc.level.getSeaLevel() - 32.0F, mc.level.getSeaLevel() + 32.0F, 1, 0, y), 0.0F, 1.0F);
+        //FogLooksGoodNowMod.LOGGER.info("" + yFactor);
+        return Mth.lerp(yFactor, 1 - this.undergroundness.get(partialTick), this.currentSkyLight.get(partialTick) / 16.0F);
     }
 
     public void close() {}
@@ -102,8 +126,11 @@ public class FogDensityManager {
             this.defaultValue = (float)value;
         }
 
-        public void interpolate(float value) {
+        public void interpolate(float value, float interpolationSpeed) {
             this.set(Float.isNaN(value) ? Mth.lerp(interpolationSpeed, currentValue, defaultValue) : Mth.lerp(interpolationSpeed, currentValue, value));
+        }
+        public void interpolate(float value) {
+            this.interpolate(value, this.interpolationSpeed);
         }
         public void interpolate() {
             this.set(Mth.lerp(interpolationSpeed, currentValue, defaultValue));
