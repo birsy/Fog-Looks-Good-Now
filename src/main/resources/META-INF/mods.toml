@@ -4,7 +4,7 @@ license="CC0"
 
 [[mods]]
 modId="foglooksgoodnow"
-version="${file.jarVersion}"
+version="1.5.0"
 displayName="Fog Looks Good Now"
 logoFile="icon.png"
 authors="CAPPIN"

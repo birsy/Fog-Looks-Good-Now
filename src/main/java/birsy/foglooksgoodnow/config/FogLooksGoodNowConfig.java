@@ -1,7 +1,6 @@
 package birsy.foglooksgoodnow.config;
 
 import birsy.foglooksgoodnow.client.FogManager;
-import net.minecraftforge.api.distmarker.Dist;
 import net.minecraftforge.common.ForgeConfigSpec;
 import net.minecraftforge.fml.common.Mod;
 import org.apache.commons.lang3.tuple.Pair;
@@ -10,7 +9,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 
-@Mod.EventBusSubscriber(bus = Mod.EventBusSubscriber.Bus.MOD, value = Dist.CLIENT)
+@Mod.EventBusSubscriber(bus = Mod.EventBusSubscriber.Bus.MOD)
 public class FogLooksGoodNowConfig {
     public static final ForgeConfigSpec config;
     public static final ClientConfig CLIENT_CONFIG;
@@ -34,14 +33,15 @@ public class FogLooksGoodNowConfig {
             builder.push("Client");
 
             this.defaultFogStart = builder.comment("Defines the global default fog start value").defineInRange("globalfogstart", 0.0, 0.01, 100.0);
-            this.defaultFogDensity = builder.comment("Defines the global default fog density value. At 1.0, the fog end is at render distance. At 0, there is no fog").defineInRange("globalfogdensity", 1.0, 0.01, 100.0);
-            this.biomeFogs = builder.comment("Defines a specific fog start and density per biome. Entries are comma separated, structured like \"<biomeid>,<fog start>,<fog end>\"",
-                    "\nExample: \"minecraft:plains,0.1,1.2\", \"minecraft:nether_wastes,0,0.5\"")
-                    .defineListAllowEmpty(Arrays.stream(new String[]{"biomeFogMap"}).toList(), () -> new ArrayList<>(), o -> o instanceof String);
+            this.defaultFogDensity = builder.comment("Defines the global default fog end value, as a percentage of render distance. At 1.0, the fog end is at render distance. At 0, there is no fog").defineInRange("fogend", 1.0, 0.0, 1.0);
 
             this.useCaveFog = builder.comment("Defines if fog will darken and get more dense when underground.").define("usecavefog", true);
-            this.caveFogDensity = builder.comment("Defines the density of fog in caves. If cave fog is active, this will be multiplied with the current fog density.").defineInRange("cavefogdensity", 1.0, 0.01, 100.0);
+            this.caveFogDensity = builder.comment("Defines the density of fog in caves. If cave fog is active, this will be multiplied with the current fog end.").defineInRange("cavefogdensity", 0.8, 0.0, 1.0);
             this.caveFogColor = builder.comment("Defines the color of cave fog, in the decimal color format. If cave fog is active, this will be multiplied with the current fog color.").defineInRange("caveFogColor",  3355443, 0, 16777215);
+
+            this.biomeFogs = builder.comment("Defines a specific fog start, fog end, and cave fog end per biome. Entries are comma separated, structured like \"<biomeid>,<fog start>,<fog end>,<cave fog color>\"",
+                    "Example: [\"minecraft:plains,0.1,1.2,5066351\", \"minecraft:nether_wastes,0,0.5,5056548\"]")
+                    .defineListAllowEmpty(Arrays.stream(new String[]{"biomeFogMap"}).toList(), () -> new ArrayList<>(), o -> o instanceof String);
 
             builder.pop();
         }
@@ -54,7 +54,7 @@ public class FogLooksGoodNowConfig {
         for (String densityConfig : densityConfigs) {
             String[] options = densityConfig.split(".*");
             try {
-                list.add(Pair.of(options[0], new FogManager.BiomeFogDensity(Float.parseFloat(options[1]), Float.parseFloat(options[2]))));
+                list.add(Pair.of(options[0], new FogManager.BiomeFogDensity(Float.parseFloat(options[1]), Float.parseFloat(options[2]), Integer.parseInt(options[3]))));
             } catch (NumberFormatException e) {
                 throw new RuntimeException(e);
             }
