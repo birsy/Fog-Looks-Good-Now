@@ -1,15 +1,16 @@
 modLoader="javafml" #mandatory
 loaderVersion="[43,)"
 license="CC0"
+issueTrackerURL="https://github.com/birsy/Fog-Looks-Good-Now/issues"
 
 [[mods]]
 modId="foglooksgoodnow"
-version="${file.jarVersion}"
+version="2.0.0"
 displayName="Fog Looks Good Now"
 logoFile="icon.png"
 authors="CAPPIN"
 
-description='''makes fog look good by setting the fog start point to zero. additionally, add customization to many fog features'''
+description='''makes fog look good by setting the fog start point to zero. additionally, adds customization to many fog features'''
 [[dependencies.foglooksgoodnow]] #optional
     modId="forge" #mandatory
     mandatory=true #mandatory
