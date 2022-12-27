@@ -22,6 +22,8 @@ import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.level.LightLayer;
 import net.minecraft.world.level.biome.Biome;
 import net.minecraft.world.level.biome.BiomeManager;
+import net.minecraft.world.level.levelgen.Heightmap;
+import net.minecraft.world.level.material.FogType;
 import net.minecraft.world.phys.Vec3;
 import org.apache.commons.lang3.tuple.Pair;
 import org.jetbrains.annotations.Nullable;
@@ -46,8 +48,12 @@ public class FogManager {
     public InterpolatedValue currentLight;
     public InterpolatedValue undergroundness;
     public InterpolatedValue darkness;
+    public InterpolatedValue[] caveFogColors;
 
     private Map<String, BiomeFogDensity> configMap;
+
+    public boolean useCaveFog = true;
+    public double caveFogMultiplier = 1.0;
 
     public FogManager() {
         this.mc = Minecraft.getInstance();
@@ -59,6 +65,10 @@ public class FogManager {
         this.currentLight = new InterpolatedValue(16.0F);
         this.undergroundness = new InterpolatedValue(0.0F, 0.02f);
         this.darkness = new InterpolatedValue(0.0F, 0.1f);
+        this.caveFogColors = new InterpolatedValue[3];
+        this.caveFogColors[0] =  new InterpolatedValue(1.0F);
+        this.caveFogColors[1] =  new InterpolatedValue(1.0F);
+        this.caveFogColors[2] =  new InterpolatedValue(1.0F);
 
         this.configMap = new HashMap<>();
         if (FogLooksGoodNowConfig.config.isLoaded()) {
@@ -70,7 +80,14 @@ public class FogManager {
         FogLooksGoodNowMod.LOGGER.info("Initialized Config Values");
         this.fogStart.setDefaultValue(FogLooksGoodNowConfig.CLIENT_CONFIG.defaultFogStart.get());
         this.fogDensity.setDefaultValue(FogLooksGoodNowConfig.CLIENT_CONFIG.defaultFogDensity.get());
+        this.useCaveFog = FogLooksGoodNowConfig.CLIENT_CONFIG.useCaveFog.get();
+        this.caveFogMultiplier = FogLooksGoodNowConfig.CLIENT_CONFIG.caveFogDensity.get();
         this.configMap = new HashMap<>();
+
+        Vec3 caveFogColor = Vec3.fromRGB24(FogLooksGoodNowConfig.CLIENT_CONFIG.caveFogColor.get());
+        this.caveFogColors[0].setDefaultValue(caveFogColor.x);
+        this.caveFogColors[1].setDefaultValue(caveFogColor.y);
+        this.caveFogColors[2].setDefaultValue(caveFogColor.z);
 
         List<Pair<String, BiomeFogDensity>> densityConfigs = FogLooksGoodNowConfig.getDensityConfigs();
         for (Pair<String, BiomeFogDensity> densityConfig : densityConfigs) {
@@ -93,9 +110,17 @@ public class FogManager {
 
         if (currentDensity != null) {
             darknessAffectedFog = getDarknessEffectedFog(currentDensity.fogStart(), currentDensity.fogDensity() * density);
+            Vec3 caveFogColor = Vec3.fromRGB24(currentDensity.caveFogColor);
+            this.caveFogColors[0].interpolate(caveFogColor.x);
+            this.caveFogColors[1].interpolate(caveFogColor.y);
+            this.caveFogColors[2].interpolate(caveFogColor.z);
         } else {
             darknessAffectedFog = getDarknessEffectedFog(this.fogStart.defaultValue, this.fogDensity.defaultValue * density);
+            this.caveFogColors[0].interpolate();
+            this.caveFogColors[1].interpolate();
+            this.caveFogColors[2].interpolate();
         }
+
         this.darkness.interpolate(darknessAffectedFog[2]);
         this.fogStart.interpolate(darknessAffectedFog[0]);
         this.fogDensity.interpolate(darknessAffectedFog[1]);
@@ -103,7 +128,9 @@ public class FogManager {
         this.currentSkyLight.interpolate(mc.level.getBrightness(LightLayer.SKY, pos));
         this.currentBlockLight.interpolate(mc.level.getBrightness(LightLayer.BLOCK, pos));
         this.currentLight.interpolate(mc.level.getRawBrightness(pos, 0));
-        if (mc.level.canSeeSky(pos) || pos.getY() < mc.level.getSeaLevel() - 32.0F) { this.undergroundness.interpolate(0.0F, 0.05f); } else { this.undergroundness.interpolate(1.0F); }
+
+        boolean isAboveGround =  pos.getY() > mc.level.getHeight(Heightmap.Types.WORLD_SURFACE, pos.getX(), pos.getZ()) || pos.getY() > mc.level.getSeaLevel();
+        if (isAboveGround) { this.undergroundness.interpolate(0.0F, 0.05f); } else { this.undergroundness.interpolate(1.0F); }
     }
 
     public float getUndergroundFactor(float partialTick) {
@@ -113,22 +140,15 @@ public class FogManager {
         return Mth.lerp(yFactor, 1 - this.undergroundness.get(partialTick), this.currentSkyLight.get(partialTick) / 16.0F);
     }
 
-    public static Vec3 getCaveFogColor(ClientLevel level, Camera camera) {
+    public static Vec3 getCaveFogColor() {
         Minecraft mc = Minecraft.getInstance();
 
-        BiomeManager biomemanager = level.getBiomeManager();
-        Vec3 biomePos = camera.getPosition().subtract(2.0D, 2.0D, 2.0D).scale(0.25D);
-        Vec3 fogColor = CubicSampler.gaussianSampleVec3(biomePos, (x, y, z) -> Vec3.fromRGB24(biomemanager.getNoiseBiomeAtQuart(x, y, z).get().getFogColor()));
-        fogColor = fogColor.multiply(Vec3.fromRGB24(FogLooksGoodNowConfig.CLIENT_CONFIG.caveFogColor.get()));
-
-        float darkness = 1.0F - Mth.clamp(densityManager.darkness.get(mc.getPartialTick()), 0, 1);
-        fogColor = fogColor.multiply(darkness, darkness, darkness);
-
-        return fogColor;
+        InterpolatedValue[] cfc = densityManager.caveFogColors;
+        return new Vec3(cfc[0].get(mc.getPartialTick()), cfc[1].get(mc.getPartialTick()), cfc[2].get(mc.getPartialTick()));
     }
 
     public static boolean shouldRenderCaveFog() {
-        return Minecraft.getInstance().level.effects().skyType() == DimensionSpecialEffects.SkyType.NORMAL && FogLooksGoodNowConfig.CLIENT_CONFIG.useCaveFog.get();
+        return Minecraft.getInstance().level.effects().skyType() == DimensionSpecialEffects.SkyType.NORMAL && densityManager.useCaveFog && Minecraft.getInstance().gameRenderer.getMainCamera().getFluidInCamera() == FogType.NONE;
     }
 
     public static float[] getDarknessEffectedFog(float fs, float fd) {
@@ -163,7 +183,7 @@ public class FogManager {
 
     public void close() {}
 
-    public record BiomeFogDensity(float fogStart, float fogDensity) {};
+    public record BiomeFogDensity(float fogStart, float fogDensity, int caveFogColor) {};
 
     public class InterpolatedValue {
         public float defaultValue;
@@ -186,6 +206,10 @@ public class FogManager {
             this.previousValue = this.currentValue;
             this.currentValue = value;
         }
+        public void set(double value) {
+            this.previousValue = this.currentValue;
+            this.currentValue = (float) value;
+        }
 
         public void setDefaultValue(float value) {
             this.defaultValue = value;
@@ -197,7 +221,13 @@ public class FogManager {
         public void interpolate(float value, float interpolationSpeed) {
             this.set(Float.isNaN(value) ? Mth.lerp(interpolationSpeed, currentValue, defaultValue) : Mth.lerp(interpolationSpeed, currentValue, value));
         }
+        public void interpolate(double value, float interpolationSpeed) {
+            this.set(Double.isNaN(value) ? Mth.lerp(interpolationSpeed, currentValue, defaultValue) : Mth.lerp(interpolationSpeed, currentValue, value));
+        }
         public void interpolate(float value) {
+            this.interpolate(value, this.interpolationSpeed);
+        }
+        public void interpolate(double value) {
             this.interpolate(value, this.interpolationSpeed);
         }
         public void interpolate() {
