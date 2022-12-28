@@ -1,6 +1,7 @@
 package birsy.foglooksgoodnow.client.screen;
 
 import birsy.foglooksgoodnow.FogLooksGoodNowMod;
+import birsy.foglooksgoodnow.client.screen.widgets.FogDensitySliders;
 import birsy.foglooksgoodnow.client.screen.widgets.TickBox;
 import birsy.foglooksgoodnow.config.FogLooksGoodNowOptions;
 import com.google.common.collect.ImmutableList;
@@ -35,6 +36,7 @@ public class FogConfigScreen extends Screen {
     protected void init() {
         super.init();
         this.list = new FogOptionsList(this.minecraft, this.width, this.height, 32, this.height - 32, 25);
+
         this.addRenderableWidget(new TickBox(this.width / 2 - 125, this.height - 100, 70, Component.literal("Use Fog"), (box) -> {}, true));
 
         TickBox caveFogAffectsSkyBox = new TickBox(this.width / 2 - 125, this.height - 60, 100, Component.literal("Cave Fog Affects Sky"), (box) -> {}, true);
@@ -45,6 +47,8 @@ public class FogConfigScreen extends Screen {
 
         this.addRenderableWidget(useCaveFog);
         this.addRenderableWidget(caveFogAffectsSkyBox);
+
+        this.addRenderableWidget(new FogDensitySliders(this.width / 2 - 125, this.height - 200, Component.literal("Use Fog"), 0.5, 0.5));
 
         this.addRenderableWidget(new Button(this.width / 2 - 100, this.height - 27, 200, 20, CommonComponents.GUI_DONE, (p_96257_) -> this.minecraft.setScreen(this.lastScreen)));
         this.addWidget(list);
