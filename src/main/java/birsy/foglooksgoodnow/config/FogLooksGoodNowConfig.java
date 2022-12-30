@@ -32,7 +32,7 @@ public class FogLooksGoodNowConfig {
         private ClientConfig(ForgeConfigSpec.Builder builder) {
             builder.push("Client");
 
-            this.defaultFogStart = builder.comment("Defines the global default fog start value").defineInRange("globalfogstart", 0.0, 0.01, 100.0);
+            this.defaultFogStart = builder.comment("Defines the global default fog start value").defineInRange("globalfogstart", 0.0, 0.0, 1.0);
             this.defaultFogDensity = builder.comment("Defines the global default fog end value, as a percentage of render distance. At 1.0, the fog end is at render distance. At 0, there is no fog").defineInRange("fogend", 1.0, 0.0, 1.0);
 
             this.useCaveFog = builder.comment("Defines if fog will darken and get more dense when underground.").define("usecavefog", true);
