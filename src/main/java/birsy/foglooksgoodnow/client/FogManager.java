@@ -104,7 +104,7 @@ public class FogManager {
 
         BiomeFogDensity currentDensity = configMap.get(key.toString());
         boolean isFogDense = this.mc.level.effects().isFoggyAt(pos.getX(), pos.getZ()) || this.mc.gui.getBossOverlay().shouldCreateWorldFog();
-        float density = isFogDense? 2.0F : 1.0F;
+        float density = isFogDense? 0.9F : 1.0F;
 
         float[] darknessAffectedFog;
 
