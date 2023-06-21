@@ -3,11 +3,14 @@ package birsy.foglooksgoodnow.client;
 import birsy.foglooksgoodnow.FogLooksGoodNowMod;
 import birsy.foglooksgoodnow.config.FogLooksGoodNowConfig;
 import birsy.foglooksgoodnow.util.MathUtils;
+import net.minecraft.client.Camera;
 import net.minecraft.client.Minecraft;
+import net.minecraft.client.multiplayer.ClientLevel;
 import net.minecraft.client.renderer.DimensionSpecialEffects;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Registry;
 import net.minecraft.resources.ResourceLocation;
+import net.minecraft.util.CubicSampler;
 import net.minecraft.util.Mth;
 import net.minecraft.world.effect.MobEffectInstance;
 import net.minecraft.world.effect.MobEffects;
@@ -15,6 +18,7 @@ import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.level.LightLayer;
 import net.minecraft.world.level.biome.Biome;
+import net.minecraft.world.level.biome.BiomeManager;
 import net.minecraft.world.level.levelgen.Heightmap;
 import net.minecraft.world.level.material.FogType;
 import net.minecraft.world.phys.Vec3;
@@ -42,6 +46,8 @@ public class FogManager {
     public InterpolatedValue undergroundness;
     public InterpolatedValue darkness;
     public InterpolatedValue[] caveFogColors;
+
+    public Vec3 unlitFogColor = Vec3.ZERO;
 
     private Map<String, BiomeFogDensity> configMap;
 
@@ -99,6 +105,12 @@ public class FogManager {
         boolean isFogDense = this.mc.level.effects().isFoggyAt(pos.getX(), pos.getZ()) || this.mc.gui.getBossOverlay().shouldCreateWorldFog();
         float density = isFogDense? 0.9F : 1.0F;
 
+        ClientLevel pLevel = Minecraft.getInstance().level;
+        Camera camera = Minecraft.getInstance().gameRenderer.getMainCamera();
+        BiomeManager biomemanager = pLevel.getBiomeManager();
+        Vec3 playerPos = camera.getPosition().subtract(2.0D, 2.0D, 2.0D).scale(0.25D);
+        this.unlitFogColor = CubicSampler.gaussianSampleVec3(playerPos, (p_109033_, p_109034_, p_109035_) -> pLevel.effects().getBrightnessDependentFogColor(Vec3.fromRGB24(biomemanager.getNoiseBiomeAtQuart(p_109033_, p_109034_, p_109035_).value().getFogColor()), 1));
+
         float[] darknessAffectedFog;
 
         if (currentDensity != null) {
@@ -118,18 +130,17 @@ public class FogManager {
         this.fogStart.interpolate(darknessAffectedFog[0]);
         this.fogEnd.interpolate(darknessAffectedFog[1]);
 
-        this.currentSkyLight.interpolate(mc.level.getBrightness(LightLayer.SKY, pos));
+        this.currentSkyLight.interpolate(Math.max(mc.level.getBrightness(LightLayer.SKY, pos), mc.level.getBrightness(LightLayer.SKY, pos.above())));
         this.currentBlockLight.interpolate(mc.level.getBrightness(LightLayer.BLOCK, pos));
         this.currentLight.interpolate(mc.level.getRawBrightness(pos, 0));
 
-        boolean isAboveGround =  pos.getY() > mc.level.getHeight(Heightmap.Types.WORLD_SURFACE, pos.getX(), pos.getZ()) || pos.getY() > mc.level.getSeaLevel();
+        boolean isAboveGround =  pos.getY() > mc.level.getHeight(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, pos.getX(), pos.getZ());
         if (isAboveGround) { this.undergroundness.interpolate(0.0F, 0.05f); } else { this.undergroundness.interpolate(1.0F); }
     }
 
     public float getUndergroundFactor(float partialTick) {
         float y = (float) mc.cameraEntity.getY();
         float yFactor = Mth.clamp(MathUtils.mapRange(mc.level.getSeaLevel() - 32.0F, mc.level.getSeaLevel() + 32.0F, 1, 0, y), 0.0F, 1.0F);
-        //FogLooksGoodNowMod.LOGGER.info("" + yFactor);
         return Mth.lerp(yFactor, 1 - this.undergroundness.get(partialTick), this.currentSkyLight.get(partialTick) / 16.0F);
     }
 

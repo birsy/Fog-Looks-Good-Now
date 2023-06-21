@@ -3,7 +3,13 @@ package birsy.foglooksgoodnow.client;
 import birsy.foglooksgoodnow.FogLooksGoodNowMod;
 import com.mojang.blaze3d.shaders.FogShape;
 import com.mojang.blaze3d.systems.RenderSystem;
+import net.minecraft.client.Camera;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.multiplayer.ClientLevel;
+import net.minecraft.util.CubicSampler;
 import net.minecraft.util.Mth;
+import net.minecraft.world.level.Level;
+import net.minecraft.world.level.biome.BiomeManager;
 import net.minecraft.world.level.material.FogType;
 import net.minecraft.world.phys.Vec3;
 import net.minecraftforge.api.distmarker.Dist;
@@ -40,9 +46,13 @@ public class ClientEvents {
             Vec3 fogColor = FogManager.getCaveFogColor();
 
             float undergroundFactor = 1 - densityManager.getUndergroundFactor((float) event.getPartialTick());
-            event.setRed((float) Mth.lerp(undergroundFactor, event.getRed(), fogColor.x * event.getRed()));
-            event.setGreen((float) Mth.lerp(undergroundFactor, event.getGreen(), fogColor.y * event.getGreen()));
-            event.setBlue((float) Mth.lerp(undergroundFactor, event.getBlue(), fogColor.z * event.getBlue()));
+            event.setRed((float) Mth.lerp(undergroundFactor, event.getRed(), fogColor.x * densityManager.unlitFogColor.x()));
+            event.setGreen((float) Mth.lerp(undergroundFactor, event.getGreen(), fogColor.y * densityManager.unlitFogColor.y()));
+            event.setBlue((float) Mth.lerp(undergroundFactor, event.getBlue(), fogColor.z * densityManager.unlitFogColor.z()));
+
+            //event.setRed((float) (fogColor.x * densityManager.unlitFogColor.x()));
+            //event.setGreen((float) (fogColor.y * densityManager.unlitFogColor.y()));
+            //event.setBlue((float) (fogColor.z * densityManager.unlitFogColor.z()));
         }
     }
 }

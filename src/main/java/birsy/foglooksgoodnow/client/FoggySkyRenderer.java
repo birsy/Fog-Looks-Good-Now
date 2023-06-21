@@ -32,12 +32,8 @@ public class FoggySkyRenderer {
             RenderSystem.disableTexture();
             RenderSystem.setShaderColor(1.0F, 1.0F, 1.0F, 1.0F);
 
-            // Gets the current fog color, simply based off the biome.
-            float timeOfDay = Mth.clamp(Mth.cos(level.getTimeOfDay(partialTick) * ((float)Math.PI * 2F)) * 2.0F + 0.5F, 0.0F, 1.0F);
-            BiomeManager biomemanager = level.getBiomeManager();
-            Vec3 samplePos = camera.getPosition().subtract(2.0D, 2.0D, 2.0D).scale(0.25D);
-            Vec3 skyFogColor = CubicSampler.gaussianSampleVec3(samplePos, (x, y, z) -> level.effects().getBrightnessDependentFogColor(Vec3.fromRGB24(biomemanager.getNoiseBiomeAtQuart(x, y, z).value().getFogColor()), timeOfDay));
-            
+            Vec3 skyFogColor = densityManager.unlitFogColor;
+
             float radius = 5.0F;
             renderCone(poseStack, bufferbuilder, 32, true, radius, -30.0F, 
                     (float) (fogColor.x * skyFogColor.x), (float) (fogColor.y * skyFogColor.y), (float) (fogColor.z * skyFogColor.z), undergroundFactor,
